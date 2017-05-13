@@ -1,0 +1,166 @@
+{-# START_FILE .gitignore #-}
+*.hi
+*.o
+.stack-work/
+.cabal-sandbox
+.DS_Store
+{-# START_FILE {{name}}.cabal #-}
+name:                {{name}}
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/{{github-username}}{{^github-username}}githubuser{{/github-username}}/{{name}}#readme
+license:             BSD3
+license-file:        LICENSE
+author:              {{author-name}}{{^author-name}}Author name here{{/author-name}}
+maintainer:          {{author-email}}{{^author-email}}example@example.com{{/author-email}}
+copyright:           {{copyright}}{{^copyright}}{{year}}{{^year}}2017{{/year}} {{author-name}}{{^author-name}}Author name here{{/author-name}}{{/copyright}}
+category:            {{category}}{{^category}}Web{{/category}}
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Lib
+  build-depends:       base >= 4.7 && < 5
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/{{github-username}}{{^github-username}}githubuser{{/github-username}}/{{name}}
+
+{-# START_FILE .travis.yml #-}
+language: c
+addons:
+  apt:
+    packages:
+      - libgmp-dev
+sudo: false
+cache:
+  directories:
+    - $HOME/.local/bin
+    - $HOME/.stack
+os:
+  - linux
+  - osx
+before_install:
+  - sh tools/install-stack.sh
+  - sh tools/install-ghr.sh
+script:
+  - stack setup
+  - stack build --ghc-options -O2 --pedantic
+after_success:
+  - sh tools/attach-binary.sh
+
+{-# START_FILE tools/install-stack.sh #-}
+set -o errexit -o verbose
+
+if test -f "$HOME/.local/bin/stack"
+then
+  echo 'Stack is already installed.'
+else
+  echo "Installing Stack for $TRAVIS_OS_NAME..."
+  URL="https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64"
+  curl --location "$URL" > stack.tar.gz
+  gunzip stack.tar.gz
+  tar -x -f stack.tar --strip-components 1
+  mkdir -p "$HOME/.local/bin"
+  mv stack "$HOME/.local/bin/"
+  rm stack.tar
+fi
+
+stack --version
+
+{-# START_FILE tools/attach-binary.sh #-}
+set -o errexit -o verbose
+
+if test ! "$TRAVIS_TAG"
+then
+  echo 'This is not a release build.'
+elif test ! "$GITHUB_TOKEN"
+then
+  echo 'The GITHUB_TOKEN environment variable is not set!'
+  exit 1
+else
+  echo "Attaching binary for $TRAVIS_OS_NAME to $TRAVIS_TAG..."
+  OWNER="$(echo "$TRAVIS_REPO_SLUG" | cut -f1 -d/)"
+  REPO="$(echo "$TRAVIS_REPO_SLUG" | cut -f2 -d/)"
+  BIN="$(stack path --local-install-root)/bin/$REPO"
+  BUNDLE_NAME="$REPO-$TRAVIS_TAG-$TRAVIS_OS_NAME.tar.gz"
+  cp "$BIN" "./$REPO"
+  chmod +x "./$REPO"
+  tar -czf "$BUNDLE_NAME" "$REPO"
+  echo "SHA256:"
+  shasum -a 256 "$BUNDLE_NAME"
+  ghr -t "$GITHUB_TOKEN" -u "$OWNER" -r "$REPO" --replace "$(git describe --tags)" "$BUNDLE_NAME"
+fi
+
+{-# START_FILE tools/install-ghr.sh #-}
+set -o errexit -o verbose
+
+if test ! "$TRAVIS_TAG"
+then
+  echo 'This is not a release build.'
+else
+    if [ "$TRAVIS_OS_NAME" = "linux" ]
+    then
+        ARCH="linux"
+    else
+        ARCH="darwin"
+    fi
+  echo "Installing ghr"
+  URL="https://github.com/tcnksm/ghr/releases/download/v0.5.4/ghr_v0.5.4_${ARCH}_386.zip"
+  curl -L ${URL} > ghr.zip
+  mkdir -p "$HOME/bin"
+  export PATH="$HOME/bin:$PATH"
+  unzip ghr.zip -d "$HOME/bin"
+  rm ghr.zip
+fi
+
+{-# START_FILE Setup.hs #-}
+import Distribution.Simple
+main = defaultMain
+
+{-# START_FILE src/Lib.hs #-}
+module Lib
+    ( someFunc
+    ) where
+
+someFunc :: IO ()
+someFunc = putStrLn "someFunc"
+
+{-# START_FILE README.md #-}
+# {{name}}
+
+{-# START_FILE LICENSE #-}
+Copyright {{author-name}}{{^author-name}}Author name here{{/author-name}} (c) {{year}}{{^year}}2017{{/year}}
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of {{author-name}}{{^author-name}}Author name here{{/author-name}} nor the names of other
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
